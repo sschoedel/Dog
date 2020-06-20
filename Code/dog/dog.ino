@@ -140,6 +140,10 @@ Vector3 frCurrPoint;
 Vector3 blCurrPoint;
 Vector3 brCurrPoint;
 
+double maxMotionDelay = 17;
+double currentDelay = maxMotionDelay;
+double prevStepUpdate = millis();
+
 void setup() {
   // start gait as continuous trot for now
   Serial.begin(9600);
@@ -248,10 +252,16 @@ void movementManager()
   }
   else // Walk
   {
+    currentDelay = maxMotionDelay - max(max(abs(desiredGaitVelX), abs(desiredGaitVelY)), abs(desiredGaitRotationVel));
+    
     updateLegTrajectories();
     moveToPositions();
-    stepLegPositions();
-    delay(17-max(max(abs(desiredGaitVelX), abs(desiredGaitVelY)), abs(desiredGaitRotationVel)));
+    
+    if (millis() > prevStepUpdate + currentDelay) // Only step to the next leg position every currentDelay milliseconds
+    {
+      prevStepUpdate = millis();
+      stepLegPositions();
+    }
   }
 }
 
@@ -417,9 +427,9 @@ void updateLegTrajectories()
     const int initialSideThrow = 25;
     const int initialRotThrow = 25;
 
+    float botFront = vOffset+20;
+    float botBack = vOffset+20;
     float top = vOffset-30;
-    float botFront = vOffset;
-    float botBack = vOffset;
     float frontForwardOffset = 0;
     float backForwardOffset = 35;
 
