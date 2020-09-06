@@ -1,6 +1,6 @@
 #include <Trajectory.h>
 
-#include <SPI.h>
+#include <Wire.h>
 #include <nRF24L01.h>
 #include <RF24.h>
 #include <Servo.h>
@@ -147,9 +147,11 @@ double prevStepUpdate = millis();
 void setup() {
   // start gait as continuous trot for now
   Serial.begin(9600);
-  radio.begin();
+
+//  startIMU();
 
   // Start nrf by reading - switch to writing only when required
+  radio.begin();
   radio.openReadingPipe(0, address);
   radio.setPALevel(RF24_PA_MIN);
   radio.startListening();
@@ -204,8 +206,8 @@ void loop() {
   else
   {
     // Set to crouching position
-//    wholeDogKinematics(0, 0, 150, 0, 0, 0);
-//    moveToRotations();
+    wholeDogKinematics(0, 0, 170, 0, 0, 0);
+    moveToRotations();
   }
 
   // Send data over wifi
@@ -240,7 +242,7 @@ void loop() {
 }
 
 /*
- * Umbrella function for all locomotion
+ * Primary function for controlling locomotion
  */
 void movementManager()
 {
@@ -431,7 +433,7 @@ void updateLegTrajectories()
     float botBack = vOffset+20;
     float top = vOffset-30;
     float frontForwardOffset = 0;
-    float backForwardOffset = 35;
+    float backForwardOffset = 18;
 
     // Set forward/backward and side to side gait throws
     static float forward = 0;
@@ -464,7 +466,7 @@ void updateLegTrajectories()
     if (desiredGaitRotationVel > stopThresholdRot)
     { rotAdd = initialRotThrow + desiredGaitRotationVel; }
     else if (desiredGaitRotationVel < -stopThresholdRot)
-    { rotAdd = -initialRotThrow - desiredGaitRotationVel; }
+    { rotAdd = -initialRotThrow + desiredGaitRotationVel; }
     else
     { rotAdd = 0; }
 
@@ -479,9 +481,7 @@ void updateLegTrajectories()
       if (flTrot != stop_trot)
       {
         flTrot = stop_trot;
-        Serial.print(flCurrPoint.x);Serial.print('\t');Serial.print(flCurrPoint.y);Serial.print('\t');Serial.println(flCurrPoint.z);
         flCurrPoint = flTraj.getCurrentTrajectoryPoint();
-        Serial.print(flCurrPoint.x);Serial.print('\t');Serial.print(flCurrPoint.y);Serial.print('\t');Serial.println(flCurrPoint.z);
         flTraj.interpolate(flCurrPoint.x,0, flCurrPoint.y,frontForwardOffset, flCurrPoint.z,botFront, subPts);
       }
       if (frTrot != stop_trot)
