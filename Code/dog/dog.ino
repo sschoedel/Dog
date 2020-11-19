@@ -8,7 +8,7 @@
 // nrf24 parameters
 RF24 radio(5, 6); // ce csn pins
 
-const byte address[6] = "00001";
+const byte address[6] = "12345";
 
 #define MAX_TRAJECTORY_SUBPOINTS 200
 #define MAX_MESSAGE_BUFFER 64
@@ -75,7 +75,7 @@ bool pwmRaw_exceeded_bounds[NUM_SERVOS] = {false};
 // Output shaft motor angles in degrees
 float motorRotations[NUM_SERVOS] = {90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90};
 
-bool debugging = false;
+bool debugging = true;
 bool debuggingRotations = false;
 
 // Local and global positioning variables
@@ -146,7 +146,7 @@ double prevStepUpdate = millis();
 
 void setup() {
   // start gait as continuous trot for now
-  Serial.begin(9600);
+  Serial.begin(115200);
 
 //  startIMU();
 
