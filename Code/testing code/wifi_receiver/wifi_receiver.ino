@@ -7,6 +7,7 @@ const byte address[6] = "000001";
 void setup() {
   Serial.begin(9600);
   radio.begin();
+//  radio.setChannel(0x55);
   radio.openReadingPipe(0, address);
   radio.setPALevel(RF24_PA_MIN);
   radio.startListening();

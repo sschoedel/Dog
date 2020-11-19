@@ -1,8 +1,8 @@
 #include <RF24.h>
 
-RF24 radio(4,5);
+RF24 radio(5,6);
 
-const byte address[6] = "00001";
+const byte address[6] = "12345";
 
 float sendTimer = 25;
 float prevTime = millis();
@@ -25,8 +25,8 @@ void setup() {
 }
 
 void loop() {
-  xJS = analogRead(horizontalJS);
-  yJS = 1023-analogRead(verticalJS);
+  yJS = 1024 - analogRead(verticalJS);
+  xJS = 1024 - analogRead(horizontalJS);
   buttonPress = digitalRead(button);
 
   // Read incoming data from teensy if available
