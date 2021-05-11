@@ -9,7 +9,7 @@ All Arduino based code runs on a Teensy 4.0 connected to a larger cpu. This can 
 
 
 
-## Compiling VOXL code:
+### Compiling VOXL code:
 
 1. Enter VOXL docker
 '''
