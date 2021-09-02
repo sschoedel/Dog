@@ -5,7 +5,12 @@ void kinematics(float x, float y, float z, int legSide, int legFrontBack) // fro
     float x_L = x + hipOffsetLen;
     
     // Triangle 1
-    float theta1_L = atan2(x_L, z) * 180 / M_PI - hipRotationExtraOffset;
+    float theta1_L;
+    if (legFrontBack == 2)
+      theta1_L = atan2(x_L, z) * 180 / M_PI;
+    else
+      theta1_L = atan2(x_L, z) * 180 / M_PI - hipRotationExtraOffset;
+      
     float z2_R = sqrt(sq(z) + sq(x_L) - sq(hipOffsetLen));
   
     // Triangle 2
@@ -32,9 +37,15 @@ void kinematics(float x, float y, float z, int legSide, int legFrontBack) // fro
   else if (legSide == 2) // right
   {
     float x_R = x - hipOffsetLen;
+
+    y = -y; // v2 (comment for v1)
     
     // Triangle 1
-    float theta1_R = -atan2(x_R, z) * 180 / M_PI - hipRotationExtraOffset;
+    float theta1_R;
+    if (legFrontBack == 1)
+      theta1_R = -atan2(x_R, z) * 180 / M_PI;
+    else
+      theta1_R = -atan2(x_R, z) * 180 / M_PI - hipRotationExtraOffset;
     float z2_R = sqrt(sq(z) + sq(x_R) - sq(hipOffsetLen));
     
     // Triangle 2
@@ -45,82 +56,26 @@ void kinematics(float x, float y, float z, int legSide, int legFrontBack) // fro
     float theta3_R = acos((sq(thighLen) + sq(shinLen) - sq(z1_R)) / (2 * thighLen * shinLen)) * 180 / M_PI; // angles due to z displacement
     float theta2_R = (180 - theta3_R) / 2;
     
-    if (legFrontBack == 1)      // right (1) front (1)
+    if (legFrontBack == 1)      // right (2) front (1)
     {
       motorRotations[3] = theta1_R + offsets[3];
-      motorRotations[4] = theta2_R + beta2_R + offsets[4];
+//      motorRotations[4] = theta2_R + beta2_R + offsets[4]; // v1
+      motorRotations[4] = -theta2_R + beta2_R + offsets[4]; // v2
       motorRotations[5] = theta3_R +         offsets[5] - 90;
     }
-    else if (legFrontBack == 2) // right (1) back (2)
+    else if (legFrontBack == 2) // right (2) back (2)
     {
       motorRotations[9] = theta1_R + offsets[9];    
-      motorRotations[10] = theta2_R + beta2_R + offsets[10];
+//      motorRotations[10] = theta2_R + beta2_R + offsets[10]; // v1
+      motorRotations[10] = -theta2_R + beta2_R + offsets[10]; // v2
       motorRotations[11] = theta3_R +         offsets[11] - 90;
     }
   }
-  
-//  if (legSide == 1) // left side
-//  {
-//    // X related triangle
-//    float theta0 = atan2(x, z) * 180 / M_PI;
-//    float z1 = sqrt(sq(z) + sq(x) - sq(hipOffsetLen));
-//
-//    // Y related triangle
-//    float beta1 = atan2(y, z) * 180 / M_PI;
-//    float z2 = sqrt(sq(y) + sq(z1));
-//
-//    // Z related triangle (last triangle)
-//    // Theta 1 and 2 based on simplified z (z1)
-//    float theta2 = acos((sq(thighLen) + sq(shinLen) - sq(z2)) / (2 * thighLen * shinLen)) * 180 / M_PI; // Calculate theta2 z contribution
-//    float theta1 = (180 - theta2) / 2;
-//
-//    if (legFrontBack == 1) // left side front leg
-//    {
-//      // Combine angles calculated through each step for each joint
-//      motorRotations[0] = theta0            + offsets[0];
-//      motorRotations[1] = theta1 + beta1    + offsets[1];
-//      motorRotations[2] = theta2            + offsets[2];
-//    }
-//    else if (legFrontBack == 2) // left side hind leg
-//    {
-//      // Combine angles calculated through each step for each joint
-//      motorRotations[6] = theta0            + offsets[6];
-//      motorRotations[7] = theta1 + beta1    + offsets[7];
-//      motorRotations[8] = theta2            + offsets[8];
-//    }
-//  }
-//  else if (legSide == 2) // right side
-//  {
-//    // X related triangle
-//    float theta01 = atan2(x, z) * 180 / M_PI;
-//    float z11 = sqrt(sq(z) + sq(x) - sq(hipOffsetLen));
-//
-//    // Y related triangle
-//    float beta11 = atan2(y, z) * 180 / M_PI;
-//    float z21 = sqrt(sq(y) + sq(z11));
-//
-//    // Z related triangle (last triangle)
-//    // Theta 1 and 2 based on simplified z (z1)
-//    float theta21 = acos((sq(thighLen) + sq(shinLen) - sq(z21)) / (2 * thighLen * shinLen)) * 180 / M_PI; // Calculate theta2 z contribution
-//    float theta11 = (180 - theta21) / 2;
-//
-//    if (legFrontBack == 1) // right side front leg
-//    {
-//      // Combine angles calculated through each step for each joint
-//      motorRotations[3] = theta01             + offsets[3];
-//      motorRotations[4] = theta11 + beta11    + offsets[4];
-//      motorRotations[5] = theta21             + offsets[5];
-//    }
-//    else if (legFrontBack == 2) // right side hind leg
-//    {
-//      // Combine angles calculated through each step for each joint
-//      motorRotations[9] = theta01             + offsets[9];
-//      motorRotations[10] = theta11 + beta11   + offsets[10];
-//      motorRotations[11] = theta21            + offsets[11];
-//    }
-//  }
 }
 
+
+
+// Sets motor angles to achieve desired x,y,z,p,r,y offsets
 void wholeDogKinematics(float x, float y, float z, float pitch, float roll, float yaw)
 {  
   // Contribution to z and y due to pitch
@@ -138,10 +93,14 @@ void wholeDogKinematics(float x, float y, float z, float pitch, float roll, floa
   float y_yaw = d*(cos(theta_n * M_PI/180) - cos(theta_n * M_PI/180 + yaw * M_PI/180));
 
   // Modify the height of each leg's 1st triangle
-  float z_FL = z + z_pitch + z_roll;
-  float z_BL = z - z_pitch + z_roll;
-  float z_FR = z + z_pitch - z_roll;
-  float z_BR = z - z_pitch - z_roll;
+//  float z_FL = z + z_pitch + z_roll; // v1
+//  float z_BL = z - z_pitch + z_roll; // v1
+  float z_FL = z - z_pitch + z_roll; // v2
+  float z_BL = z + z_pitch + z_roll; // v2
+//  float z_FR = z + z_pitch - z_roll; // v1
+//  float z_BR = z - z_pitch - z_roll; // v1
+  float z_FR = z - z_pitch - z_roll; // v2
+  float z_BR = z + z_pitch - z_roll; // v2
   
   // Nominal X value to set feet in vertical position at zero robot x displacement (hipOffsetLen) and x displacement for desired yaw (x_yaw)
   float x_FL = x + hipOffsetLen + x_yaw;
@@ -152,18 +111,22 @@ void wholeDogKinematics(float x, float y, float z, float pitch, float roll, floa
   // Modify Y values for each leg based on y displacement for desired yaw (y_yaw)
   float y_FL = y + y_yaw;
   float y_BL = y + y_yaw;
-  float y_FR = y - y_yaw;
-  float y_BR = y - y_yaw;
+//  float y_FR = y - y_yaw; // v1
+//  float y_BR = y - y_yaw; // v1
+  float y_FR = -(y - y_yaw); // v2
+  float y_BR = -(y - y_yaw); // v2
 
   // Triangle 1
   // Front left leg
   float theta1_FL = atan2(x_FL, z_FL) * 180 / M_PI - hipRotationExtraOffset;
   float z2_FL = sqrt(sq(z_FL) + sq(x_FL) - sq(hipOffsetLen));
   // Back left leg
-  float theta1_BL = atan2(x_BL, z_BL) * 180 / M_PI - hipRotationExtraOffset;
+//  float theta1_BL = atan2(x_BL, z_BL) * 180 / M_PI - hipRotationExtraOffset; // v1
+  float theta1_BL = atan2(x_BL, z_BL) * 180 / M_PI; // v2
   float z2_BL = sqrt(sq(z_BL) + sq(x_BL) - sq(hipOffsetLen));
   // Front right leg
-  float theta1_FR = -atan2(x_FR, z_FR) * 180 / M_PI - hipRotationExtraOffset;
+//  float theta1_FR = -atan2(x_FR, z_FR) * 180 / M_PI - hipRotationExtraOffset; // v1
+  float theta1_FR = -atan2(x_FR, z_FR) * 180 / M_PI; // v2
   float z2_FR = sqrt(sq(z_FR) + sq(x_FR) - sq(hipOffsetLen));
   // Back right leg
   float theta1_BR = -atan2(x_BR, z_BR) * 180 / M_PI - hipRotationExtraOffset;
@@ -173,16 +136,16 @@ void wholeDogKinematics(float x, float y, float z, float pitch, float roll, floa
   // Triangle 2
   // Front left leg
   float beta2_FL = atan2(y_FL, z2_FL) * 180 / M_PI; // angle due to y displacement
-  float z1_FL = sqrt(sq(z2_FL) + sq(y)); // shared hypotenuse for trianges 2 and 3
+  float z1_FL = sqrt(sq(z2_FL) + sq(y)); // shared hypotenuse for triangles 2 and 3
   // Back left leg
   float beta2_BL = atan2(y_BL, z2_BL) * 180 / M_PI; // angle due to y displacement
-  float z1_BL = sqrt(sq(z2_BL) + sq(y)); // shared hypotenuse for trianges 2 and 3
+  float z1_BL = sqrt(sq(z2_BL) + sq(y)); // shared hypotenuse for triangles 2 and 3
   // Front right leg
   float beta2_FR = atan2(y_FR, z2_FR) * 180 / M_PI; // angle due to y displacement
-  float z1_FR = sqrt(sq(z2_FR) + sq(y)); // shared hypotenuse for trianges 2 and 3
+  float z1_FR = sqrt(sq(z2_FR) + sq(y)); // shared hypotenuse for triangles 2 and 3
   // Back right leg
   float beta2_BR = atan2(y_BR, z2_BR) * 180 / M_PI; // angle due to y displacement
-  float z1_BR = sqrt(sq(z2_BR) + sq(y)); // shared hypotenuse for trianges 2 and 3
+  float z1_BR = sqrt(sq(z2_BR) + sq(y)); // shared hypotenuse for triangles 2 and 3
 
   
   // Triangle 3
@@ -207,18 +170,30 @@ void wholeDogKinematics(float x, float y, float z, float pitch, float roll, floa
   motorRotations[9] = theta1_BR + offsets[9] + roll;
 
   // front left leg
-  motorRotations[1] = theta2_FL + beta2_FL + offsets[1] + pitch;
+//  motorRotations[1] = theta2_FL + beta2_FL + offsets[1] + pitch; // v1
+  motorRotations[1] = theta2_FL + beta2_FL + offsets[1] - pitch; // v2
   motorRotations[2] = theta3_FL +         offsets[2] - 90;
 
   // front right leg
-  motorRotations[4] = theta2_FR + beta2_FR + offsets[4] + pitch;
+//  motorRotations[4] = theta2_FR + beta2_FR + offsets[4] + pitch; // v1
+  motorRotations[4] = -theta2_FR + beta2_FR + offsets[4] + pitch; // v2
   motorRotations[5] = theta3_FR +         offsets[5] - 90;
 
   // back left leg
-  motorRotations[7] = theta2_BL + beta2_BL + offsets[7] + pitch;
+//  motorRotations[7] = theta2_BL + beta2_BL + offsets[7] + pitch; // v1
+  motorRotations[7] = theta2_BL + beta2_BL + offsets[7] - pitch; // v2
   motorRotations[8] = theta3_BL +         offsets[8] - 90;
 
   // back right leg
-  motorRotations[10] = theta2_BR + beta2_BR + offsets[10] + pitch;
+//  motorRotations[10] = theta2_BR + beta2_BR + offsets[10] + pitch; // v1
+  motorRotations[10] = -theta2_BR + beta2_BR + offsets[10] + pitch; // v2
   motorRotations[11] = theta3_BR +         offsets[11] - 90;
+
+  // print pwm outputs
+  Serial.print("Motor rotations\n");
+  for (int i = 0; i < 12; i++)
+  {
+    Serial.print(i); Serial.print(" : "); Serial.print(motorRotations[i]); Serial.print('\n');
+  }
+  Serial.print("\n");
 }

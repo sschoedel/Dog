@@ -22,7 +22,7 @@
  
  Note: The MPU9250 is an I2C sensor and uses the Arduino Wire library. 
  Because the sensor is not 5V tolerant, we are using a 3.3 V 8 MHz Pro Mini or a 3.3 V Teensy 3.1.
- We have disabled the internal pull-ups used by the Wire library in the Wire.h/twi.c utility file.
+ We have disabled the internal pull-ups used by the Wire library in the Wire2.h/twi.c utility file.
  We are also using the 400 kHz fast I2C mode by setting the TWI_FREQ  to 400000L /twi.h utility file.
  */
 #include <SPI.h>
@@ -261,10 +261,12 @@ float magBias[3],magScale[3];
 
 void setup()
 {
-  Wire.begin();
+  Wire2.begin();
+  Wire2.setSCL(24);
+  Wire2.setSDA(25);
 //  TWBR = 12;  // 400 kbit/sec I2C speed
   Serial.begin(115200);
-  
+    
   // Set up the interrupt pin, its set as active high, push-pull
   pinMode(intPin, INPUT);
   digitalWrite(intPin, LOW);
@@ -911,33 +913,33 @@ void MPU9250SelfTest(float * destination) // Should return percent deviation fro
 }
 
         
-        // Wire.h read and write protocols
+        // Wire2.h read and write protocols
         void writeByte(uint8_t address, uint8_t subAddress, uint8_t data)
 {
-	Wire.beginTransmission(address);  // Initialize the Tx buffer
-	Wire.write(subAddress);           // Put slave register address in Tx buffer
-	Wire.write(data);                 // Put data in Tx buffer
-	Wire.endTransmission();           // Send the Tx buffer
+	Wire2.beginTransmission(address);  // Initialize the Tx buffer
+	Wire2.write(subAddress);           // Put slave register address in Tx buffer
+	Wire2.write(data);                 // Put data in Tx buffer
+	Wire2.endTransmission();           // Send the Tx buffer
 }
 
         uint8_t readByte(uint8_t address, uint8_t subAddress)
 {
 	uint8_t data; // `data` will store the register data	 
-	Wire.beginTransmission(address);         // Initialize the Tx buffer
-	Wire.write(subAddress);	                 // Put slave register address in Tx buffer
-	Wire.endTransmission(false);             // Send the Tx buffer, but send a restart to keep connection alive
-	Wire.requestFrom(address, (uint8_t) 1);  // Read one byte from slave register address 
-	data = Wire.read();                      // Fill Rx buffer with result
+	Wire2.beginTransmission(address);         // Initialize the Tx buffer
+	Wire2.write(subAddress);	                 // Put slave register address in Tx buffer
+	Wire2.endTransmission(false);             // Send the Tx buffer, but send a restart to keep connection alive
+	Wire2.requestFrom(address, (uint8_t) 1);  // Read one byte from slave register address 
+	data = Wire2.read();                      // Fill Rx buffer with result
 	return data;                             // Return data read from slave register
 }
 
         void readBytes(uint8_t address, uint8_t subAddress, uint8_t count, uint8_t * dest)
 {  
-	Wire.beginTransmission(address);   // Initialize the Tx buffer
-	Wire.write(subAddress);            // Put slave register address in Tx buffer
-	Wire.endTransmission(false);       // Send the Tx buffer, but send a restart to keep connection alive
+	Wire2.beginTransmission(address);   // Initialize the Tx buffer
+	Wire2.write(subAddress);            // Put slave register address in Tx buffer
+	Wire2.endTransmission(false);       // Send the Tx buffer, but send a restart to keep connection alive
 	uint8_t i = 0;
-        Wire.requestFrom(address, count);  // Read bytes from slave register address 
-	while (Wire.available()) {
-        dest[i++] = Wire.read(); }         // Put read results in the Rx buffer
+        Wire2.requestFrom(address, count);  // Read bytes from slave register address 
+	while (Wire2.available()) {
+        dest[i++] = Wire2.read(); }         // Put read results in the Rx buffer
 }
