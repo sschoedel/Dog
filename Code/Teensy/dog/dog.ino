@@ -17,6 +17,8 @@ const byte address[6] = "000002"; // Address for v2
 #define MAX_CMD_BUFFER 64
 #define NUM_SERVOS 12
 
+#define USING_RPI
+
 //const int servoPins[12] = {15, 18, 19, 17, 20, 21, 14, 9, 7, 16, 10, 8}; // Servo pins for v1
 const int servoPins[12] = {6, 7, 3, 5, 2, 4,    17, 16, 15, 20, 14, 21}; // Servo pins for v2
 
@@ -119,6 +121,9 @@ bool prevButtonPress = false;
 enum JScontrol_enum {H_V, FB_Y, P_R, TRANS_ONE_LEG, TRANS_TROT, ROTATE_ONE_LEG, ROTATE}; // determines which two axes the joystick controls. Cycled with the button
 JScontrol_enum JScontrol = H_V;
 
+//enum controlMode_enum {H_V, FB_Y, P_R, TRANS_ONE_LEG, TRANS_TROT, ROTATE_ONE_LEG, ROTATE}; // determines which two axes the joystick controls. Cycled with the button
+//controlMode_enum controlMode = H_V;
+
 // Heartbeat tracking and duration
 float lastTime = millis();
 float sendTime = 1000;
@@ -159,6 +164,9 @@ double maxMotionDelay = 17;
 double currentDelay = maxMotionDelay;
 double prevStepUpdate = millis();
 
+String rpi_msg = "";
+bool received_rpi_msg = false;
+
 void setup() {
   // start gait as continuous trot for now
   Serial.begin(115200);
@@ -177,7 +185,9 @@ void setup() {
     servos[i].attach(servoPins[i]);
   }
 
-  Serial.println("moving to crouch position");
+  if (debugging) {
+    Serial.println("moving to crouch position");
+  }
   
   wholeDogKinematics(0, 0, 150, 0, 0, 0);
   moveToRotations(); // Set to crouching position on startup
@@ -189,10 +199,45 @@ void setup() {
 }
 
 void loop() {
-
   // Check receiver watch dog to make sure data is still being received
   receiverWDCheck();
+
+  #ifdef USING_RPI
+  /*
+   * Used to read commands sent from Raspberry Pi in lieu of joystick inputs
+   */
+  rpi_msg = "";
+  received_rpi_msg = false;
   
+  // Build command from Raspberry Pi
+  while (Serial.available())
+  {
+    received_rpi_msg = true;
+    char b = Serial.read();
+    rpi_msg += b;
+  }
+  
+  if (received_rpi_msg)
+  {
+    // For debugging Raspberry Pi communication
+    Serial.print("received: ");Serial.println(rpi_msg);
+    Serial.flush();
+    
+
+    // Deconstruct input string
+    // JSy: str[0-3]
+    // JSx: str[4-7]
+    // Mode: str[8]
+    JSy = rpi_msg.substring(0,4).toInt(); // (0-1023)
+    JSx = rpi_msg.substring(4,8).toInt(); // (0-1023)
+    JScontrol = rpi_msg.substring(8).toInt();  // (0-6)
+  }
+    // Feed controller input watchdog
+    receiverWatchDog = millis();
+  #else
+  /*
+   * Used only for commands sent directly through serial from PC (not raspberry pi)
+   */
   // Read incoming serial data
   if (Serial.available() > 0)
   {
@@ -208,12 +253,10 @@ void loop() {
 
   // Read incoming radio data
   receiveFromController(receiveJS, receiveIMU, JSy, JSx, buttonPress, buttonTapped, initialRoll, initialPitch, initialYaw, roll, pitch, yaw, receiverWatchDog);
+  #endif
 
-
-  /* 
-   * ========================
-   * ====  GAIT CONTROL  ====
-   * ========================
+  /*
+   * Gait Control
    */
   if (!receiverWDTimerTripped)
   {
@@ -228,6 +271,7 @@ void loop() {
     moveToRotations();
   }
 
+  #ifndef USING_RPI
   // Send data over wifi
   if (sending)
   {
@@ -237,7 +281,6 @@ void loop() {
 
     char textSend[] = "heartbeat <3";
     radio.write(&textSend, sizeof(textSend));
-//    Serial.print("Wrote: "); Serial.println(textSend);
 
     // Re-open reading pipe to receive more data
     radio.openReadingPipe(0, address);
@@ -251,12 +294,11 @@ void loop() {
     lastTime = millis();
     sending = true;
   }
-
+  #endif
 
   resetMessage();
   resetCmd();
   resetFlags();
-
 }
 
 /*
@@ -546,7 +588,9 @@ void updateLegTrajectories()
   }
   else
   {
-    Serial.println("Other gaits not programmed yet");
+    if (debugging) {
+      Serial.println("Other gaits not programmed yet");
+    }
   }
 }
 

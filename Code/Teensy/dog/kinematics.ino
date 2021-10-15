@@ -189,11 +189,13 @@ void wholeDogKinematics(float x, float y, float z, float pitch, float roll, floa
   motorRotations[10] = -theta2_BR + beta2_BR + offsets[10] + pitch; // v2
   motorRotations[11] = theta3_BR +         offsets[11] - 90;
 
-  // print pwm outputs
-  Serial.print("Motor rotations\n");
-  for (int i = 0; i < 12; i++)
-  {
-    Serial.print(i); Serial.print(" : "); Serial.print(motorRotations[i]); Serial.print('\n');
+  if (debuggingRotations) {
+    // print pwm outputs
+    Serial.print("Motor rotations\n");
+    for (int i = 0; i < 12; i++)
+    {
+      Serial.print(i); Serial.print(" : "); Serial.print(motorRotations[i]); Serial.print('\n');
+    }
+    Serial.print("\n"); 
   }
-  Serial.print("\n");
 }

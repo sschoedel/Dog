@@ -16,8 +16,9 @@ void receiveFromController(bool receiveJS, bool receiveIMU, int &JSy, int &JSx, 
       char textReceive[9] = "";
       radio.read(&textReceive, sizeof(textReceive));
       
-      if (debugging)
-      { Serial.print("Received: "); Serial.println(textReceive); }
+      if (debugging) {
+        Serial.print("Received: "); Serial.println(textReceive);
+      }
       
       // Turn inputs into joystick values
       int JSy_digit1  = textReceive[0] - '0';
@@ -50,8 +51,9 @@ void receiveFromController(bool receiveJS, bool receiveIMU, int &JSy, int &JSx, 
       radio.read(&textReceive, sizeof(textReceive));
       receivingByte = textReceive[9];
       
-      if (debugging)
-      { Serial.print("Received: "); Serial.println(textReceive); }
+      if (debugging) {
+        Serial.print("Received: "); Serial.println(textReceive);
+      }
       
       if (receivingByte == 1)
       {
