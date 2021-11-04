@@ -92,7 +92,7 @@ bool pwmRaw_exceeded_bounds[NUM_SERVOS] = {false};
 // Output shaft motor angles in degrees
 float motorRotations[NUM_SERVOS] = {90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90};
 
-bool debugging = false;
+bool debugging = true;
 bool debuggingRotations = false;
 
 // Local and global positioning variables
@@ -231,6 +231,7 @@ void loop() {
     JSy = rpi_msg.substring(0,4).toInt(); // (0-1023)
     JSx = rpi_msg.substring(4,8).toInt(); // (0-1023)
     JScontrol = rpi_msg.substring(8).toInt();  // (0-6)
+    
   }
     // Feed controller input watchdog
     receiverWatchDog = millis();
@@ -671,35 +672,49 @@ void checkJoystickControl()
  */
 void controllerInputs()
 {
+  Serial.print(rpi_msg);
+  if (rpi_msg.length()==36) {
+    
+    roll = rpi_msg.substring(0,4).toInt(); // Roll
+    pitch = rpi_msg.substring(4,8).toInt(); // pitch
+    yaw = rpi_msg.substring(8,12).toInt();
+    fbOffset = rpi_msg.substring(12,16).toInt(); // X
+    hOffset = rpi_msg.substring(16,20).toInt(); // Y
+    vOffset = rpi_msg.substring(20,24).toInt();  // Z
+    desiredGaitVelX = rpi_msg.substring(24,28).toInt();
+    desiredGaitVelY = rpi_msg.substring(28,32).toInt();
+    desiredGaitRotationVel = rpi_msg.substring(32,36).toInt();
+  }
+    
   // Offsets added to absolute yaw when rotation and translation implemented
-  if (JScontrol == H_V) // Control horizontal/vertical offset
-  {
-    hOffset = map(JSx, 0, 1024, -100,100);  // mm
-    vOffset = map(JSy, 0, 1024, 40,200);  // mm
-  }
-  else if (JScontrol == FB_Y) // Control front-to-back offset and yaw
-  {
-    yawOffset = map(JSx, 0, 1024, -60, 60); // degrees
-    fbOffset = map(JSy, 0, 1024, -150, 150); // mm
-  }
-  else if (JScontrol == P_R) // Control pitch and roll
-  {
-    roll = map(JSx, 0, 1024, -60, 60); // degrees
-    pitch = map(JSy, 0, 1024, -45, 45); // degrees
-  }
-  else if (JScontrol == TRANS_ONE_LEG || JScontrol == TRANS_TROT)
-  {
-    // Forward/backward motion: positive is front of dog
-    desiredGaitVelY = map(JSy, 0, 1024, -10,10);
-
-    // Side to side motion: positive is right of dog
-    desiredGaitVelX = map(JSx, 0, 1024, -10,10);
-  }
-  else if (JScontrol == ROTATE)
-  {
-    desiredGaitVelY = map(JSy, 0, 1024, -10,10);
-    desiredGaitRotationVel = map(JSx, 0, 1024, -10,10);
-  }
+//  if (JScontrol == H_V) // Control horizontal/vertical offset
+//  {
+//    hOffset = map(JSx, 0, 1024, -100,100);  // mm
+//    vOffset = map(JSy, 0, 1024, 40,200);  // mm
+//  }
+//  else if (JScontrol == FB_Y) // Control front-to-back offset and yaw
+//  {
+//    yawOffset = map(JSx, 0, 1024, -60, 60); // degrees
+//    fbOffset = map(JSy, 0, 1024, -150, 150); // mm
+//  }
+//  else if (JScontrol == P_R) // Control pitch and roll
+//  {
+//    roll = map(JSx, 0, 1024, -60, 60); // degrees
+//    pitch = map(JSy, 0, 1024, -45, 45); // degrees
+//  }
+//  else if (JScontrol == TRANS_ONE_LEG || JScontrol == TRANS_TROT)
+//  {
+//    // Forward/backward motion: positive is front of dog
+//    desiredGaitVelY = map(JSy, 0, 1024, -10,10);
+//
+//    // Side to side motion: positive is right of dog
+//    desiredGaitVelX = map(JSx, 0, 1024, -10,10);
+//  }
+//  else if (JScontrol == ROTATE)
+//  {
+//    desiredGaitVelY = map(JSy, 0, 1024, -10,10);
+//    desiredGaitRotationVel = map(JSx, 0, 1024, -10,10);
+//  }
 
 // IMU control
   //  int yawOffset = map(yaw, 0, 360, -40, 40);
