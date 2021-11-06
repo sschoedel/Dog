@@ -17,7 +17,7 @@ const byte address[6] = "000002"; // Address for v2
 #define MAX_CMD_BUFFER 64
 #define NUM_SERVOS 12
 
-#define USING_RPI
+//#define USING_RPI
 
 //const int servoPins[12] = {15, 18, 19, 17, 20, 21, 14, 9, 7, 16, 10, 8}; // Servo pins for v1
 const int servoPins[12] = {6, 7, 3, 5, 2, 4,    17, 16, 15, 20, 14, 21}; // Servo pins for v2
@@ -42,6 +42,7 @@ Servo brs;
 // array of servos:
 //Servo servos[12] = {flhr, flhp, fls, frhr, frhp, frs, blhr, blhp, bls, brhr, brhp, brs}; // Servo mapping for v1
 Servo servos[12] = {flhr, flhp, fls, frhr, frhp, frs, blhr, blhp, bls, brhr, brhp, brs}; // Servo mapping for v2
+//const int servoPins[12] = {6, 7, 3, 5, 2, 4,    17, 16, 15, 20, 14, 21}; // Servo pins for v2
 
 // Create leg trajectory objects
 Trajectory flTraj(MAX_TRAJECTORY_SUBPOINTS); // front left
@@ -49,7 +50,7 @@ Trajectory frTraj(MAX_TRAJECTORY_SUBPOINTS); // front right
 Trajectory blTraj(MAX_TRAJECTORY_SUBPOINTS); // back left
 Trajectory brTraj(MAX_TRAJECTORY_SUBPOINTS); // back right
 
-
+ 
 //// Body geometry in mm for v1:
 //float thighLen = 125;
 //float shinLen = 125; // This value changes slightly based on incident angle with ground
@@ -61,6 +62,8 @@ Trajectory brTraj(MAX_TRAJECTORY_SUBPOINTS); // back right
 float thighLen = 125;
 float shinLen = 125; // This value changes slightly based on incident angle with ground
 float hipOffsetLen = 36;
+//float hipOffsetLen = -36;
+//float hipOffsetLen = 0;
 float dogLength = 215;
 float dogWidth = 97;
 
@@ -74,17 +77,26 @@ int cmdIndex = 0;
 int boundedPWMs[NUM_SERVOS];
 int rawPWMs[NUM_SERVOS] = {0};
 int servoPWMs[NUM_SERVOS];
+// V1
 //int minPWMs[NUM_SERVOS] = {0, 0, 10, 0, 0, 0, 0, 0, 15, 0, 0, 15};                                              // For v1
 //int maxPWMs[NUM_SERVOS] = {180, 180, 150, 180, 180, 135, 180, 180, 155, 180, 180, 145};                         // For v1
 //bool invertServo[NUM_SERVOS] = {false, false, true, true, true, false, true, false, true, false, true, false};  // For v1
+// V2
 int minPWMs[NUM_SERVOS] = {0, 0, 35, 0, 0, 25,     0, 0, 22, 0, 0, 27};                                         // For v2
 int maxPWMs[NUM_SERVOS] = {180, 180, 175, 180, 180, 165,     180, 180, 168, 180, 180, 165};                     // For v2
 bool invertServo[NUM_SERVOS] = {false, false, true, true, false, false, true, false, true, false, false, false};  // For v2
+// V3
+//int minPWMs[NUM_SERVOS] = {0, 0, 21, 0, 0, 13,     0, 0, 22, 0, 0, 6};                                         // For v3
+//int maxPWMs[NUM_SERVOS] = {180, 180, 168, 180, 180, 162,     180, 180, 172, 180, 180, 161};                     // For v3
+//bool invertServo[NUM_SERVOS] = {false, false, true, true, false, false, true, false, true, false, false, false};  // For v3
+//bool invertServo[NUM_SERVOS] = {false, false, true,   false, false, false,     false, false, true,    false, false, false};  // For v3
 
 // Offsets to get theta = 0 for  each servo
 //int offsets[NUM_SERVOS] = {69, 38, 117, 69, 41, 92, 62, 37, 93, 69, 52, 96}; // For v1
 int offsets[NUM_SERVOS] = {90, 56, 80, 83, 131, 99,     83, 48, 90, 90, 135, 100}; // For v2
+//int offsets[NUM_SERVOS] = {72, 35, 94, 103, 144, 97,     103, 39, 92, 72, 134, 90}; // For v3
 int hipRotationExtraOffset = 12; // degrees
+//int hipRotationExtraOffset = 0; // degrees
 
 // Flags for if commanded PWM value exceeds defined limits
 bool pwmRaw_exceeded_bounds[NUM_SERVOS] = {false};
@@ -92,8 +104,8 @@ bool pwmRaw_exceeded_bounds[NUM_SERVOS] = {false};
 // Output shaft motor angles in degrees
 float motorRotations[NUM_SERVOS] = {90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90};
 
-bool debugging = false;
-bool debuggingRotations = false;
+bool debugging = true;
+bool debuggingRotations = true;
 
 // Local and global positioning variables
 float hOffset, vOffset, fbOffset, yawOffset; // relative to global
@@ -232,8 +244,8 @@ void loop() {
     JSx = rpi_msg.substring(4,8).toInt(); // (0-1023)
     JScontrol = rpi_msg.substring(8).toInt();  // (0-6)
   }
-    // Feed controller input watchdog
-    receiverWatchDog = millis();
+  // Feed controller input watchdog
+  receiverWatchDog = millis();
   #else
   /*
    * Used only for commands sent directly through serial from PC (not raspberry pi)
@@ -252,24 +264,24 @@ void loop() {
   }
 
   // Read incoming radio data
-  receiveFromController(receiveJS, receiveIMU, JSy, JSx, buttonPress, buttonTapped, initialRoll, initialPitch, initialYaw, roll, pitch, yaw, receiverWatchDog);
+//  receiveFromController(receiveJS, receiveIMU, JSy, JSx, buttonPress, buttonTapped, initialRoll, initialPitch, initialYaw, roll, pitch, yaw, receiverWatchDog);
   #endif
-
-  /*
-   * Gait Control
-   */
-  if (!receiverWDTimerTripped)
-  {
-    // Use controller values
-    controllerInputs();
-    movementManager();
-  }
-  else
-  {
-    // Set to crouching position
-    wholeDogKinematics(0, 0, 170, 0, 0, 0);
-    moveToRotations();
-  }
+//
+//  /*
+//   * Gait Control
+//   */
+//  if (!receiverWDTimerTripped)
+//  {
+//    // Use controller values
+//    controllerInputs();
+//    movementManager();
+//  }
+//  else
+//  {
+//    // Set to crouching position
+//    wholeDogKinematics(0, 0, 170, 0, 0, 0);
+//    moveToRotations();
+//  }
 
   #ifndef USING_RPI
   // Send data over wifi
@@ -759,6 +771,11 @@ void parseCmd()
   // leg position
   else if (cmd[0] == "lpos") // for only one leg right now - with all four legs xyz should command center position of robot
   {
+    Serial.print("command[1]: "); Serial.println(cmd[1]);
+    Serial.print("command[2]: "); Serial.println(cmd[2]);
+    Serial.print("command[3]: "); Serial.println(cmd[3]);
+    Serial.print("command[4]: "); Serial.println(cmd[4]);
+    Serial.print("command[5]: "); Serial.println(cmd[5]);
     int legSide = cmd[1].toInt();
     int leg = cmd[2].toInt();
     float x = cmd[3].toInt();
@@ -772,6 +789,13 @@ void parseCmd()
     int servo = cmd[1].toInt();
     float inputAngle = cmd[2].toFloat();
     motorRotations[servo] = offsets[servo] + inputAngle;
+    moveToRotations();
+  }
+  // One pwm command
+  else if (cmd[0] == "opwm")
+  {
+    int servo = cmd[1].toInt();
+    motorRotations[servo] = cmd[2].toFloat();
     moveToRotations();
   }
   // dog position
