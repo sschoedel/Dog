@@ -6,9 +6,9 @@ void kinematics(float x, float y, float z, int legSide, int legFrontBack) // fro
     
     // Triangle 1
     float theta1_L;
-    if (legFrontBack == 2)
-      theta1_L = atan2(x_L, z) * 180 / M_PI;
-    else
+//    if (legFrontBack == 2)
+//      theta1_L = atan2(x_L, z) * 180 / M_PI;
+//    else
       theta1_L = atan2(x_L, z) * 180 / M_PI - hipRotationExtraOffset;
       
     float z2_R = sqrt(sq(z) + sq(x_L) - sq(hipOffsetLen));
@@ -29,7 +29,7 @@ void kinematics(float x, float y, float z, int legSide, int legFrontBack) // fro
     }
     else if (legFrontBack == 2) // left (1) back (2)
     {
-      motorRotations[6] = theta1_L + offsets[6]; 
+      motorRotations[6] = theta1_L + 180 - offsets[6]; 
       motorRotations[7] = theta2_L + beta2_L + offsets[7];
       motorRotations[8] = theta3_L +         offsets[8] - 90;     
     }
@@ -42,9 +42,9 @@ void kinematics(float x, float y, float z, int legSide, int legFrontBack) // fro
     
     // Triangle 1
     float theta1_R;
-    if (legFrontBack == 1)
-      theta1_R = -atan2(x_R, z) * 180 / M_PI;
-    else
+//    if (legFrontBack == 1)
+//      theta1_R = -atan2(x_R, z) * 180 / M_PI;
+//    else
       theta1_R = -atan2(x_R, z) * 180 / M_PI - hipRotationExtraOffset;
     float z2_R = sqrt(sq(z) + sq(x_R) - sq(hipOffsetLen));
     
@@ -58,7 +58,7 @@ void kinematics(float x, float y, float z, int legSide, int legFrontBack) // fro
     
     if (legFrontBack == 1)      // right (2) front (1)
     {
-      motorRotations[3] = theta1_R + offsets[3];
+      motorRotations[3] = theta1_R + 180 - offsets[3];
 //      motorRotations[4] = theta2_R + beta2_R + offsets[4]; // v1
       motorRotations[4] = -theta2_R + beta2_R + offsets[4]; // v2
       motorRotations[5] = theta3_R +         offsets[5] - 90;
@@ -116,9 +116,13 @@ void wholeDogKinematics(float x, float y, float z, float pitch, float roll, floa
   float y_FR = -(y - y_yaw); // v2
   float y_BR = -(y - y_yaw); // v2
 
+//  Serial.print("x_yaw, y_yaw: "); Serial.print(x_yaw); Serial.print(" "), Serial.println(y_yaw);
+ 
+
   // Triangle 1
   // Front left leg
-  float theta1_FL = atan2(x_FL, z_FL) * 180 / M_PI - hipRotationExtraOffset;
+//  float theta1_FL = atan2(x_FL, z_FL) * 180 / M_PI - hipRotationExtraOffset;
+  float theta1_FL = atan2(x_FL, z_FL) * 180 / M_PI;
   float z2_FL = sqrt(sq(z_FL) + sq(x_FL) - sq(hipOffsetLen));
   // Back left leg
 //  float theta1_BL = atan2(x_BL, z_BL) * 180 / M_PI - hipRotationExtraOffset; // v1
@@ -129,7 +133,8 @@ void wholeDogKinematics(float x, float y, float z, float pitch, float roll, floa
   float theta1_FR = -atan2(x_FR, z_FR) * 180 / M_PI; // v2
   float z2_FR = sqrt(sq(z_FR) + sq(x_FR) - sq(hipOffsetLen));
   // Back right leg
-  float theta1_BR = -atan2(x_BR, z_BR) * 180 / M_PI - hipRotationExtraOffset;
+//  float theta1_BR = -atan2(x_BR, z_BR) * 180 / M_PI - hipRotationExtraOffset;
+  float theta1_BR = -atan2(x_BR, z_BR) * 180 / M_PI;
   float z2_BR = sqrt(sq(z_BR) + sq(x_BR) - sq(hipOffsetLen));
   
 
@@ -165,8 +170,10 @@ void wholeDogKinematics(float x, float y, float z, float pitch, float roll, floa
   
 
   motorRotations[0] = theta1_FL + offsets[0] - roll;
-  motorRotations[3] = theta1_FR + offsets[3] + roll;
-  motorRotations[6] = theta1_BL + offsets[6] - roll;
+  motorRotations[3] = theta1_FR + 180 - offsets[3] + roll;
+  motorRotations[6] = theta1_BL + 180 - offsets[6] - roll;
+//  motorRotations[3] = theta1_FR - offsets[3] + roll;
+//  motorRotations[6] = theta1_BL - offsets[6] - roll;
   motorRotations[9] = theta1_BR + offsets[9] + roll;
 
   // front left leg
@@ -176,11 +183,13 @@ void wholeDogKinematics(float x, float y, float z, float pitch, float roll, floa
 
   // front right leg
 //  motorRotations[4] = theta2_FR + beta2_FR + offsets[4] + pitch; // v1
+//  motorRotations[4] = -theta2_FR + beta2_FR + offsets[4] + pitch; // v2
   motorRotations[4] = -theta2_FR + beta2_FR + offsets[4] + pitch; // v2
   motorRotations[5] = theta3_FR +         offsets[5] - 90;
 
   // back left leg
 //  motorRotations[7] = theta2_BL + beta2_BL + offsets[7] + pitch; // v1
+//  motorRotations[7] = theta2_BL + beta2_BL + offsets[7] - pitch; // v2
   motorRotations[7] = theta2_BL + beta2_BL + offsets[7] - pitch; // v2
   motorRotations[8] = theta3_BL +         offsets[8] - 90;
 

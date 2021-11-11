@@ -1,16 +1,18 @@
 #include <Trajectory.h>
 
-#include <Wire.h>
+//#include <Wire.h>
+#include <i2c_driver_wire.h>
 #include <nRF24L01.h>
 #include <RF24.h>
 #include <Servo.h>
 
 // nrf24 parameters
 //RF24 radio(5, 6); // ce csn pins for v1
-RF24 radio(9, 8); // ce csn pins for v2
+RF24 radio(9, 8); // ce csn pins for v2 and v3
 
 //const byte address[6] = "000001"; // Address for v1
-const byte address[6] = "000002"; // Address for v2
+//const byte address[6] = "000002"; // Address for v2
+const byte address[6] = "000003"; // Address for v3
 
 #define MAX_TRAJECTORY_SUBPOINTS 200
 #define MAX_MESSAGE_BUFFER 64
@@ -20,7 +22,7 @@ const byte address[6] = "000002"; // Address for v2
 #define USING_RPI
 
 //const int servoPins[12] = {15, 18, 19, 17, 20, 21, 14, 9, 7, 16, 10, 8}; // Servo pins for v1
-const int servoPins[12] = {6, 7, 3, 5, 2, 4,    17, 16, 15, 20, 14, 21}; // Servo pins for v2
+const int servoPins[12] = {6, 7, 3, 5, 2, 4,    17, 16, 15, 20, 14, 21}; // Servo pins for v2 and v3
 
 // Create servo objects
 Servo flhr; // front left hip roll
@@ -57,10 +59,17 @@ Trajectory brTraj(MAX_TRAJECTORY_SUBPOINTS); // back right
 //float dogLength = 210;
 //float dogWidth = 97;
 
-// Body geometry in mm for v2:
+//// Body geometry in mm for v2:
+//float thighLen = 125;
+//float shinLen = 125; // This value changes slightly based on incident angle with ground
+//float hipOffsetLen = 36;
+//float dogLength = 215;
+//float dogWidth = 97;
+
+// Body geometry in mm for v3:
 float thighLen = 125;
 float shinLen = 125; // This value changes slightly based on incident angle with ground
-float hipOffsetLen = 36;
+float hipOffsetLen = -36;
 float dogLength = 215;
 float dogWidth = 97;
 
@@ -74,17 +83,26 @@ int cmdIndex = 0;
 int boundedPWMs[NUM_SERVOS];
 int rawPWMs[NUM_SERVOS] = {0};
 int servoPWMs[NUM_SERVOS];
+// V1
 //int minPWMs[NUM_SERVOS] = {0, 0, 10, 0, 0, 0, 0, 0, 15, 0, 0, 15};                                              // For v1
 //int maxPWMs[NUM_SERVOS] = {180, 180, 150, 180, 180, 135, 180, 180, 155, 180, 180, 145};                         // For v1
 //bool invertServo[NUM_SERVOS] = {false, false, true, true, true, false, true, false, true, false, true, false};  // For v1
-int minPWMs[NUM_SERVOS] = {0, 0, 35, 0, 0, 25,     0, 0, 22, 0, 0, 27};                                         // For v2
-int maxPWMs[NUM_SERVOS] = {180, 180, 175, 180, 180, 165,     180, 180, 168, 180, 180, 165};                     // For v2
-bool invertServo[NUM_SERVOS] = {false, false, true, true, false, false, true, false, true, false, false, false};  // For v2
+// V2
+//int minPWMs[NUM_SERVOS] = {0, 0, 35, 0, 0, 25,     0, 0, 22, 0, 0, 27};                                         // For v2
+//int maxPWMs[NUM_SERVOS] = {180, 180, 175, 180, 180, 165,     180, 180, 168, 180, 180, 165};                     // For v2
+//bool invertServo[NUM_SERVOS] = {false, false, true, true, false, false, true, false, true, false, false, false};  // For v2
+// V3
+int minPWMs[NUM_SERVOS] = {0, 0, 21, 0, 0, 13,     0, 0, 22, 0, 0, 6};                                         // For v3
+int maxPWMs[NUM_SERVOS] = {180, 180, 168, 180, 180, 162,     180, 180, 172, 180, 180, 161};                     // For v3
+bool invertServo[NUM_SERVOS] = {false, false, true, true, false, false, true, false, true, false, false, false};  // For v3
+//bool invertServo[NUM_SERVOS] = {false, false, true,   false, false, false,     false, false, true,    false, false, false};  // For v3
 
 // Offsets to get theta = 0 for  each servo
 //int offsets[NUM_SERVOS] = {69, 38, 117, 69, 41, 92, 62, 37, 93, 69, 52, 96}; // For v1
-int offsets[NUM_SERVOS] = {90, 56, 80, 83, 131, 99,     83, 48, 90, 90, 135, 100}; // For v2
-int hipRotationExtraOffset = 12; // degrees
+//int offsets[NUM_SERVOS] = {90, 56, 80, 83, 131, 99,     83, 48, 90, 90, 135, 100}; // For v2
+int offsets[NUM_SERVOS] = {72, 35, 94, 103, 144, 97,     103, 39, 92, 72, 134, 90}; // For v3
+//int hipRotationExtraOffset = 12; // degrees, for v2
+int hipRotationExtraOffset = 0; // degrees, for v3
 
 // Flags for if commanded PWM value exceeds defined limits
 bool pwmRaw_exceeded_bounds[NUM_SERVOS] = {false};
@@ -166,10 +184,21 @@ double prevStepUpdate = millis();
 
 String rpi_msg = "";
 bool received_rpi_msg = false;
+int ledPin = 13;
 
 void setup() {
   // start gait as continuous trot for now
   Serial.begin(115200);
+
+  #ifdef USING_RPI
+    // Join I2C bus as slave with address 8
+    Wire.begin(0x8);
+    
+    // Call receiveEvent when data is received over I2C
+    Wire.onReceive(receiveEvent);
+
+    vOffset = 100;
+  #endif
 
 //  startIMU();
 
@@ -196,6 +225,8 @@ void setup() {
   frTraj.setCurrentTrajectoryPoint(0, 0, botFrontInitial);
   blTraj.setCurrentTrajectoryPoint(0, 0, botFrontInitial);
   brTraj.setCurrentTrajectoryPoint(0, 0, botFrontInitial);
+
+  pinMode(ledPin, OUTPUT);
 }
 
 void loop() {
@@ -206,34 +237,47 @@ void loop() {
   /*
    * Used to read commands sent from Raspberry Pi in lieu of joystick inputs
    */
-  rpi_msg = "";
-  received_rpi_msg = false;
-  
-  // Build command from Raspberry Pi
-  while (Serial.available())
-  {
-    received_rpi_msg = true;
-    char b = Serial.read();
-    rpi_msg += b;
-  }
-  
-  if (received_rpi_msg)
-  {
-    // For debugging Raspberry Pi communication
-    Serial.print("received: ");Serial.println(rpi_msg);
-    Serial.flush();
-    
+//  rpi_msg = "";
+//  received_rpi_msg = false;
+//  
+//  // Build command from Raspberry Pi
+//  while (Serial.available())
+//  {
+//    received_rpi_msg = true;
+//    char b = Serial.read();
+//    rpi_msg += b;
+//  }
+//  
+//  if (received_rpi_msg)
+//  {
+//    // For debugging Raspberry Pi communication
+//    Serial.print("received: ");Serial.println(rpi_msg);
+//    Serial.flush();
+//    
+//
+//    // Deconstruct input string
+//    // JSy: str[0-3]
+//    // JSx: str[4-7]
+//    // Mode: str[8]
+////    JSy = rpi_msg.substring(0,4).toInt(); // (0-1023)
+////    JSx = rpi_msg.substring(4,8).toInt(); // (0-1023)
+////    JScontrol = rpi_msg.substring(8).toInt();  // (0-6)
+//    
+//  }
 
-    // Deconstruct input string
-    // JSy: str[0-3]
-    // JSx: str[4-7]
-    // Mode: str[8]
-    JSy = rpi_msg.substring(0,4).toInt(); // (0-1023)
-    JSx = rpi_msg.substring(4,8).toInt(); // (0-1023)
-    JScontrol = rpi_msg.substring(8).toInt();  // (0-6)
-    
-  }
-    // Feed controller input watchdog
+//    Serial.println("in loop");
+//    Serial.print("Roll: ");Serial.println(roll);
+//    Serial.print("Pitch: ");Serial.println(pitch);
+//    Serial.print("Yaw: ");Serial.println(yaw);
+//    Serial.print("fbOffset: ");Serial.println(fbOffset);
+//    Serial.print("hOffset: ");Serial.println(hOffset);
+//    Serial.print("vOffset: ");Serial.println(vOffset);
+//    Serial.print("desiredGaitVelX: ");Serial.println(desiredGaitVelX);
+//    Serial.print("desiredGaitVelY: ");Serial.println(desiredGaitVelY);
+//    Serial.print("desiredGaitRotationVel: ");Serial.println(desiredGaitRotationVel);
+    movementManagerRaspberryPi();
+
+    // Feed controller input watchdog - move this to receiveEvent when master controller is implemented
     receiverWatchDog = millis();
   #else
   /*
@@ -254,7 +298,6 @@ void loop() {
 
   // Read incoming radio data
   receiveFromController(receiveJS, receiveIMU, JSy, JSx, buttonPress, buttonTapped, initialRoll, initialPitch, initialYaw, roll, pitch, yaw, receiverWatchDog);
-  #endif
 
   /*
    * Gait Control
@@ -262,6 +305,7 @@ void loop() {
   if (!receiverWDTimerTripped)
   {
     // Use controller values
+//    piInputs();
     controllerInputs();
     movementManager();
   }
@@ -271,8 +315,7 @@ void loop() {
     wholeDogKinematics(0, 0, 170, 0, 0, 0);
     moveToRotations();
   }
-
-  #ifndef USING_RPI
+  
   // Send data over wifi
   if (sending)
   {
@@ -300,6 +343,27 @@ void loop() {
   resetMessage();
   resetCmd();
   resetFlags();
+}
+
+/*
+ *  Locomotion controller when using Raspberry Pi
+ *  Allows for motion commands to be realized at once
+ */
+void movementManagerRaspberryPi()
+{
+//  wholeDogKinematics(hOffset, fbOffset, vOffset, pitch, roll, yawOffset);
+//  moveToRotations();
+
+  currentDelay = maxMotionDelay - max(max(abs(desiredGaitVelX), abs(desiredGaitVelY)), abs(desiredGaitRotationVel));
+  vOffset = 120;
+  updateLegTrajectories();
+  moveToPositions();
+  
+  if (millis() > prevStepUpdate + currentDelay) // Only step to the next leg position every currentDelay milliseconds
+  {
+    prevStepUpdate = millis();
+    stepLegPositions();
+  }
 }
 
 /*
@@ -668,13 +732,12 @@ void checkJoystickControl()
 }
 
 /*
- *  Setter for joystick reliant variables
+ *  Setter for Raspberry Pi commands received over serial
  */
-void controllerInputs()
+void piInputs()
 {
-  Serial.print(rpi_msg);
+  Serial.print("raspberry pi message: "); Serial.println(rpi_msg);
   if (rpi_msg.length()==36) {
-    
     roll = rpi_msg.substring(0,4).toInt(); // Roll
     pitch = rpi_msg.substring(4,8).toInt(); // pitch
     yaw = rpi_msg.substring(8,12).toInt();
@@ -685,36 +748,124 @@ void controllerInputs()
     desiredGaitVelY = rpi_msg.substring(28,32).toInt();
     desiredGaitRotationVel = rpi_msg.substring(32,36).toInt();
   }
-    
+}
+
+/*
+ *  Called when data is received from master over I2C
+ */
+void receiveEvent(int numBytes) {
+  // Set LED high while reading
+  digitalWrite(ledPin, HIGH);
+
+  Serial.print("num bytes: ");Serial.println(numBytes);
+
+  String i2c_msg = "";
+  
+  byte firstByte;
+  byte secondByte;
+  int readingByte = 1;
+
+  char throw_byte = Wire.read();
+  throw_byte = Wire.read();
+
+  int commands[32];
+  int cmd_index = 0;
+
+  // Read inputs as shorts with MSB first
+  while (Wire.available()) {
+    // Switch between first and second bytes
+    if (readingByte == 1) {
+      readingByte = 2;
+      firstByte = Wire.read();
+//      Serial.print("byte1: ");Serial.println(firstByte);
+    }
+    else {
+      readingByte = 1;
+      secondByte = Wire.read();
+//      Serial.print("byte2: ");Serial.println(secondByte);
+      // Store command for parsing later
+      commands[cmd_index++] = (firstByte<<8) | secondByte;
+//      Serial.print("command: ");Serial.println(commands[cmd_index-1]);
+    }
+  }
+//  // Remove first two bytes - they seem to always be garbage
+//  i2c_msg = i2c_msg.substring(2);
+//  Serial.print("msg length: ");Serial.print(i2c_msg.length());Serial.print(" num bytes: ");Serial.println(numBytes);
+//  Serial.print("msg received over I2C: "); Serial.println(i2c_msg);
+
+  // Parse commands
+  if (cmd_index == 9 && !receiverWDTimerTripped) {
+    Serial.println("parsing commands");
+    roll = map(commands[0], 0, 1023, -60, 60); // degrees
+    pitch = map(commands[1], 0, 1023, -45, 45); // degrees
+    yaw = map(commands[2], 0, 1023, -60, 60); // degrees
+    fbOffset = map(commands[3], 0, 1023, -150, 150); // mm
+    hOffset = map(commands[4], 0, 1023, -100,100); // mm
+    vOffset = map(commands[5], 0, 1023, 40, 200); // mm
+    desiredGaitVelX = map(commands[6], 0, 1023, -10, 10);
+    desiredGaitVelY = map(commands[7], 0, 1023, -10, 10);
+    desiredGaitRotationVel = map(commands[8], 0, 1023, -10, 10);
+  }
+
+  Serial.println("in interrupt");
+  Serial.print("Roll: ");Serial.println(roll);
+  Serial.print("Pitch: ");Serial.println(pitch);
+  Serial.print("Yaw: ");Serial.println(yaw);
+  Serial.print("fbOffset: ");Serial.println(fbOffset);
+  Serial.print("hOffset: ");Serial.println(hOffset);
+  Serial.print("vOffset: ");Serial.println(vOffset);
+  Serial.print("desiredGaitVelX: ");Serial.println(desiredGaitVelX);
+  Serial.print("desiredGaitVelY: ");Serial.println(desiredGaitVelY);
+  Serial.print("desiredGaitRotationVel: ");Serial.println(desiredGaitRotationVel);
+
+//  if (i2c_msg.length()==36) {
+//    roll = i2c_msg.substring(0,4).toInt(); // Roll
+//    pitch = i2c_msg.substring(4,8).toInt(); // pitch
+//    yaw = i2c_msg.substring(8,12).toInt(); // Yaw
+//    fbOffset = i2c_msg.substring(12,16).toInt(); // X
+//    hOffset = i2c_msg.substring(16,20).toInt(); // Y
+//    vOffset = i2c_msg.substring(20,24).toInt();  // Z
+//    desiredGaitVelX = i2c_msg.substring(24,28).toInt(); // X movement
+//    desiredGaitVelY = i2c_msg.substring(28,32).toInt(); // Y movement
+//    desiredGaitRotationVel = i2c_msg.substring(32,36).toInt(); // Rotation
+//  }
+  digitalWrite(ledPin, LOW);
+}
+
+/*
+ *  Setter for joystick reliant variables
+ */
+void controllerInputs()
+{ 
   // Offsets added to absolute yaw when rotation and translation implemented
-//  if (JScontrol == H_V) // Control horizontal/vertical offset
-//  {
-//    hOffset = map(JSx, 0, 1024, -100,100);  // mm
-//    vOffset = map(JSy, 0, 1024, 40,200);  // mm
-//  }
-//  else if (JScontrol == FB_Y) // Control front-to-back offset and yaw
-//  {
-//    yawOffset = map(JSx, 0, 1024, -60, 60); // degrees
-//    fbOffset = map(JSy, 0, 1024, -150, 150); // mm
-//  }
-//  else if (JScontrol == P_R) // Control pitch and roll
-//  {
-//    roll = map(JSx, 0, 1024, -60, 60); // degrees
-//    pitch = map(JSy, 0, 1024, -45, 45); // degrees
-//  }
-//  else if (JScontrol == TRANS_ONE_LEG || JScontrol == TRANS_TROT)
-//  {
-//    // Forward/backward motion: positive is front of dog
-//    desiredGaitVelY = map(JSy, 0, 1024, -10,10);
-//
-//    // Side to side motion: positive is right of dog
-//    desiredGaitVelX = map(JSx, 0, 1024, -10,10);
-//  }
-//  else if (JScontrol == ROTATE)
-//  {
-//    desiredGaitVelY = map(JSy, 0, 1024, -10,10);
-//    desiredGaitRotationVel = map(JSx, 0, 1024, -10,10);
-//  }
+  if (JScontrol == H_V) // Control horizontal/vertical offset
+  {
+    hOffset = map(JSx, 0, 1024, -100,100);  // mm
+    vOffset = map(JSy, 0, 1024, 40,200);  // mm
+  }
+  else if (JScontrol == FB_Y) // Control front-to-back offset and yaw
+  {
+    yawOffset = map(JSx, 0, 1024, -60, 60); // degrees
+    fbOffset = map(JSy, 0, 1024, -150, 150); // mm
+  }
+  else if (JScontrol == P_R) // Control pitch and roll
+  {
+    roll = map(JSx, 0, 1024, -60, 60); // degrees
+    pitch = map(JSy, 0, 1024, -45, 45); // degrees
+  }
+  else if (JScontrol == TRANS_ONE_LEG || JScontrol == TRANS_TROT)
+  {
+    // Forward/backward motion: positive is front of dog
+    desiredGaitVelY = map(JSy, 0, 1024, -10,10);
+
+    // Side to side motion: positive is right of dog
+    desiredGaitVelX = map(JSx, 0, 1024, -10,10);
+  }
+  else if (JScontrol == ROTATE)
+  {
+    desiredGaitVelY = map(JSy, 0, 1024, -10,10);
+    desiredGaitRotationVel = map(JSx, 0, 1024, -10,10);
+  }
 
 // IMU control
   //  int yawOffset = map(yaw, 0, 360, -40, 40);
