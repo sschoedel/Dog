@@ -69,7 +69,7 @@ Trajectory brTraj(MAX_TRAJECTORY_SUBPOINTS); // back right
 // Body geometry in mm for v3:
 float thighLen = 125;
 float shinLen = 125; // This value changes slightly based on incident angle with ground
-float hipOffsetLen = -36;
+float hipOffsetLen = 0;
 float dogLength = 215;
 float dogWidth = 97;
 
@@ -798,7 +798,7 @@ void receiveEvent(int numBytes) {
     Serial.println("parsing commands");
     roll = map(commands[0], 0, 1023, -60, 60); // degrees
     pitch = map(commands[1], 0, 1023, -45, 45); // degrees
-    yaw = map(commands[2], 0, 1023, -60, 60); // degrees
+    yawOffset = map(commands[2], 0, 1023, -60, 60); // degrees
     fbOffset = map(commands[3], 0, 1023, -150, 150); // mm
     hOffset = map(commands[4], 0, 1023, -100,100); // mm
     vOffset = map(commands[5], 0, 1023, 40, 200); // mm
@@ -810,7 +810,7 @@ void receiveEvent(int numBytes) {
   Serial.println("in interrupt");
   Serial.print("Roll: ");Serial.println(roll);
   Serial.print("Pitch: ");Serial.println(pitch);
-  Serial.print("Yaw: ");Serial.println(yaw);
+  Serial.print("YawOffset: ");Serial.println(yaw);
   Serial.print("fbOffset: ");Serial.println(fbOffset);
   Serial.print("hOffset: ");Serial.println(hOffset);
   Serial.print("vOffset: ");Serial.println(vOffset);
