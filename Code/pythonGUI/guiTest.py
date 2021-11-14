@@ -1,0 +1,57 @@
+from appJar import gui
+
+app = gui()
+
+def updateCmd(title):
+    cmd = ""
+    values = app.getAllScales()
+    # print(f"{title} value: {values[title]}")
+    for i, val in enumerate(values):
+        inp = str(values[val])
+        while len(inp) < 4:
+            inp = "0" + inp
+        cmd += inp
+        # print(f"i, val, values[{val}]: {i}, {val}, {values[val]}")
+    print(f"cmd: {cmd}")
+    
+app.addLabel("title", "remote dog interface")
+app.setLabelBg("title", "lightgray")
+
+app.addLabelScale("roll")
+app.setScaleRange("roll", 0, 1023, curr=512)
+
+app.addLabelScale("pitch")
+app.setScaleRange("pitch", 0, 1023, curr=512)
+
+app.addLabelScale("yaw")
+app.setScaleRange("yaw", 0, 1023, curr=512)
+
+app.addLabelScale("forward")
+app.setScaleRange("forward", 0, 1023, curr=512)
+
+app.addLabelScale("lateral")
+app.setScaleRange("lateral", 0, 1023, curr=512)
+
+app.addLabelScale("vertical")
+app.setScaleRange("vertical", 0, 1023, curr=512)
+
+app.addLabelScale("X vel")
+app.setScaleRange("X vel", 0, 1023, curr=512)
+
+app.addLabelScale("Y vel")
+app.setScaleRange("Y vel", 0, 1023, curr=512)
+
+app.addLabelScale("Rotation vel")
+app.setScaleRange("Rotation vel", 0, 1023, curr=512)
+
+app.setScaleChangeFunction("vertical", updateCmd)
+app.setScaleChangeFunction("lateral", updateCmd)
+app.setScaleChangeFunction("forward", updateCmd)
+app.setScaleChangeFunction("roll", updateCmd)
+app.setScaleChangeFunction("pitch", updateCmd)
+app.setScaleChangeFunction("yaw", updateCmd)
+app.setScaleChangeFunction("Y vel", updateCmd)
+app.setScaleChangeFunction("X vel", updateCmd)
+app.setScaleChangeFunction("Rotation vel", updateCmd)
+
+app.go()
