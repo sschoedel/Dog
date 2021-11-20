@@ -1,4 +1,4 @@
-## Welcome to GitHub Pages
+## Quadruped Evolution
 
 You can use the [editor on GitHub](https://github.com/sschoedel/Dog/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
 
