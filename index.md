@@ -2,7 +2,7 @@
 
 ![Quad_V1](/Images/V1/Quadruped_V1_big.jpg)
 
-Three versions of my quadruped design currently exist. The first was made with the goal of creating a walking dog robot with minimal controls and autonomy. The second improved on the design by reorganizing the electronics and actuators and adding a microprocessor. The third version was redesigned to reduce weight as well as house more sensors and a cheaper microprocessor.
+<p>Three versions of my quadruped design currently exist. The first was made with the goal of creating a walking dog robot with minimal controls and autonomy. The second improved on the design by reorganizing the electronics and actuators and adding a microprocessor. The third version was redesigned to reduce weight as well as house more sensors and a cheaper microprocessor.</p>
 
 ### Markdown
 
