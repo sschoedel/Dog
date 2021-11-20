@@ -295,6 +295,7 @@ void setup()
 //  display.setTextSize(1); // Set text size to normal, 2 is twice normal etc.
 //  display.setTextColor(BLACK); // Set pixel color; 1 on the monochrome screen
 //  display.clearDisplay();   // clears the screen and buffer
+  delay(800); 
 
   // Read the WHO_AM_I register, this is a good test of communication
   byte c = readByte(MPU9250_ADDRESS, WHO_AM_I_MPU9250);  // Read WHO_AM_I register for MPU-9250
@@ -312,7 +313,7 @@ void setup()
 //  display.display();
   delay(800); 
 
-  if (c == 0x73) // WHO_AM_I should always be 0x68
+  if (c == 0x71) // WHO_AM_I should always be 0x68
   {  
     Serial.println("MPU9250 is online...");
     
@@ -356,14 +357,14 @@ void setup()
     getMres();
     magcalMPU9250(magBias,magScale); 
 
-  
-  if(SerialDebug) {
-    //  Serial.println("Calibration values: ");
-    Serial.print("X-Axis sensitivity adjustment value "); Serial.println(magCalibration[0], 2);
-    Serial.print("Y-Axis sensitivity adjustment value "); Serial.println(magCalibration[1], 2);
-    Serial.print("Z-Axis sensitivity adjustment value "); Serial.println(magCalibration[2], 2);
-  }
-  
+    
+    if(SerialDebug) {
+      //  Serial.println("Calibration values: ");
+      Serial.print("X-Axis sensitivity adjustment value "); Serial.println(magCalibration[0], 2);
+      Serial.print("Y-Axis sensitivity adjustment value "); Serial.println(magCalibration[1], 2);
+      Serial.print("Z-Axis sensitivity adjustment value "); Serial.println(magCalibration[2], 2);
+    }
+    
 //    display.clearDisplay();
 //    display.setCursor(20,0); 
     Serial.println("AK8963");
@@ -391,7 +392,7 @@ void setup()
 }
 
 void loop()
-{  
+{
   // If intPin goes high, all data registers have new data
   if (readByte(MPU9250_ADDRESS, INT_STATUS) & 0x01) {  // On interrupt, check if data ready interrupt
     readAccelData(accelCount);  // Read the x/y/z adc values

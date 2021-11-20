@@ -110,7 +110,7 @@ bool pwmRaw_exceeded_bounds[NUM_SERVOS] = {false};
 // Output shaft motor angles in degrees
 float motorRotations[NUM_SERVOS] = {90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90};
 
-bool debugging = true;
+bool debugging = false;
 bool debuggingRotations = false;
 
 // Local and global positioning variables
@@ -185,6 +185,9 @@ double prevStepUpdate = millis();
 String rpi_msg = "";
 bool received_rpi_msg = false;
 int ledPin = 13;
+
+enum control_modes {orient, walk};
+control_modes control_mode = walk;
 
 void setup() {
   // start gait as continuous trot for now
@@ -275,10 +278,19 @@ void loop() {
 //    Serial.print("desiredGaitVelX: ");Serial.println(desiredGaitVelX);
 //    Serial.print("desiredGaitVelY: ");Serial.println(desiredGaitVelY);
 //    Serial.print("desiredGaitRotationVel: ");Serial.println(desiredGaitRotationVel);
-    movementManagerRaspberryPi();
 
-    // Feed controller input watchdog - move this to receiveEvent when master controller is implemented
-    receiverWatchDog = millis();
+  if (!receiverWDTimerTripped) {
+    movementManagerRaspberryPi();
+  }
+  else
+  {
+    // Stop movement
+    desiredGaitVelX = 0;
+    desiredGaitVelY = 0;
+    desiredGaitRotationVel = 0;
+    moveToRotations();
+  }
+
   #else
   /*
    * Used only for commands sent directly through serial from PC (not raspberry pi)
@@ -351,18 +363,21 @@ void loop() {
  */
 void movementManagerRaspberryPi()
 {
-//  wholeDogKinematics(hOffset, fbOffset, vOffset, pitch, roll, yawOffset);
-//  moveToRotations();
-
-  currentDelay = maxMotionDelay - max(max(abs(desiredGaitVelX), abs(desiredGaitVelY)), abs(desiredGaitRotationVel));
-  vOffset = 120;
-  updateLegTrajectories();
-  moveToPositions();
-  
-  if (millis() > prevStepUpdate + currentDelay) // Only step to the next leg position every currentDelay milliseconds
-  {
-    prevStepUpdate = millis();
-    stepLegPositions();
+  if (control_mode == orient) {
+    wholeDogKinematics(hOffset, fbOffset, vOffset, pitch, roll, yawOffset);
+    moveToRotations(); 
+  }
+  else if (control_mode == walk) {
+    currentDelay = maxMotionDelay - max(max(abs(desiredGaitVelX), abs(desiredGaitVelY)), abs(desiredGaitRotationVel));
+//    vOffset = 120;
+    updateLegTrajectories();
+    moveToPositions();
+    
+    if (millis() > prevStepUpdate + currentDelay) // Only step to the next leg position every currentDelay milliseconds
+    {
+      prevStepUpdate = millis();
+      stepLegPositions();
+    }
   }
 }
 
@@ -754,6 +769,9 @@ void piInputs()
  *  Called when data is received from master over I2C
  */
 void receiveEvent(int numBytes) {
+  // Feed controller input watchdog
+  receiverWatchDog = millis();
+  
   // Set LED high while reading
   digitalWrite(ledPin, HIGH);
 
@@ -794,7 +812,8 @@ void receiveEvent(int numBytes) {
 //  Serial.print("msg received over I2C: "); Serial.println(i2c_msg);
 
   // Parse commands
-  if (cmd_index == 9 && !receiverWDTimerTripped) {
+  Serial.print("cmd_index: ");Serial.println(cmd_index);
+  if (cmd_index == 10) {
     Serial.println("parsing commands");
     roll = map(commands[0], 0, 1023, -60, 60); // degrees
     pitch = map(commands[1], 0, 1023, -45, 45); // degrees
@@ -805,9 +824,10 @@ void receiveEvent(int numBytes) {
     desiredGaitVelX = map(commands[6], 0, 1023, -10, 10);
     desiredGaitVelY = map(commands[7], 0, 1023, -10, 10);
     desiredGaitRotationVel = map(commands[8], 0, 1023, -10, 10);
+    control_mode = commands[9];
   }
 
-  Serial.println("in interrupt");
+  Serial.println("Control values (in I2C receive interrupt)");
   Serial.print("Roll: ");Serial.println(roll);
   Serial.print("Pitch: ");Serial.println(pitch);
   Serial.print("YawOffset: ");Serial.println(yaw);
@@ -817,6 +837,7 @@ void receiveEvent(int numBytes) {
   Serial.print("desiredGaitVelX: ");Serial.println(desiredGaitVelX);
   Serial.print("desiredGaitVelY: ");Serial.println(desiredGaitVelY);
   Serial.print("desiredGaitRotationVel: ");Serial.println(desiredGaitRotationVel);
+  Serial.print("control mode: ");Serial.println(control_mode);
 
 //  if (i2c_msg.length()==36) {
 //    roll = i2c_msg.substring(0,4).toInt(); // Roll
