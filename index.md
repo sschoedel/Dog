@@ -11,12 +11,20 @@
   We separate the IK into two parts, one for the singular yaw servo and one for the hip and knee servos. We then derive equations to derive the joint angles from the given end effector positions. The hip and knee servos form a triangle. We define the length of one side of this triangle using the desired z value. The other two side lengths are known, since they are rigid bodies. We then solve for the two joint angles using the law of cosines. A computational improvement can be made if the hip and shin leg segments are the same length. This makes the triangle an isosceles, which can be fully defined with only one law of cosines computation.
 </p>
 
-![side nom](/Images/Others/side_nominal.PNG)
-![side up](/Images/Others/side_up.PNG)
-![front nom](/Images/Others/front_nom.PNG)
-![front up](/Images/Others/front_up.PNG)
+![IK side nom](/Images/Others/side_nominal.PNG)
+![IK side up](/Images/Others/side_up.PNG)
+![IK front nom](/Images/Others/front_nom.PNG)
+![IK front up](/Images/Others/front_up.PNG)
 
-![test](/Images/Dog/IMG_6225.jpg)
+![v2 v3 comparison](/Images/Dog/v2v3.jpg)
+![v3 leg open](/Images/Dog/IMG_6225.jpg)
+![v3 leg closed](/Images/Dog/IMG_6227.jpg)
+![v3 on table](/Images/Dog/IMG_6240.jpg)
+![v3 above](/Images/Dog/IMG_6247.jpg)
+![v3 no shell](/Images/Dog/IMG_6386.jpg)
+![VIO front](/Images/Dog/IMG_6395.jpg)
+![VIO back](/Images/Dog/IMG_6393.jpg)
+
 
 ### Markdown
 
