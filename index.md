@@ -16,6 +16,8 @@
 ![front nom](/Images/Others/front_nom.PNG)
 ![front up](/Images/Others/front_up.PNG)
 
+![test](/Images/Dog/IMG_6225.HEIC)
+
 ### Markdown
 
 Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
