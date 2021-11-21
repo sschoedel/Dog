@@ -16,7 +16,7 @@
 ![front nom](/Images/Others/front_nom.PNG)
 ![front up](/Images/Others/front_up.PNG)
 
-![test](/Images/Dog/IMG_6225.HEIC)
+![test](/Images/Dog/IMG_6225.jpg)
 
 ### Markdown
 
