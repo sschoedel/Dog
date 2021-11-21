@@ -23,7 +23,6 @@
 ![v3 leg open](/Images/Dog/IMG_6225.jpg)
 ![v3 leg closed](/Images/Dog/IMG_6227.jpg)
 ![v3 on table](/Images/Dog/IMG_6240.jpg)
-![v3 above](/Images/Dog/IMG_6247.jpg)
 ![v3 no shell](/Images/Dog/IMG_6386.jpg)
 
 
