@@ -265,7 +265,7 @@ void setup()
   Wire2.setSCL(24);
   Wire2.setSDA(25);
 //  TWBR = 12;  // 400 kbit/sec I2C speed
-  Serial.begin(115200);
+  Serial.begin(9600);
     
   // Set up the interrupt pin, its set as active high, push-pull
   pinMode(intPin, INPUT);
@@ -434,7 +434,6 @@ void loop()
 //  MadgwickQuaternionUpdate(ax, ay, az, gx*PI/180.0f, gy*PI/180.0f, gz*PI/180.0f,  my,  mx, mz);
   MahonyQuaternionUpdate(ax, ay, az, gx*PI/180.0f, gy*PI/180.0f, gz*PI/180.0f, my, mx, mz);
 
-
     if (!AHRS) {
       if(SerialDebug) {
       // Print acceleration values in milligs!
@@ -482,14 +481,18 @@ void loop()
                                                                Date	Declination
                                                                2016-04-09	1.34° W  changing by  0.06° E per year (+ve for west )*/
     roll  *= 180.0f / PI;
-     
-
-    Serial.print("Yaw, Pitch, Roll: ");
-    Serial.print(yaw+180, 2);
+    
+    Serial.print("_,Yaw, Pitch, Roll,_: ");
+    Serial.print(-200);
+    Serial.print(", ");
+    Serial.print(yaw, 2);
     Serial.print(", ");
     Serial.print(pitch, 2);
     Serial.print(", ");
-    Serial.println(roll, 2);
+    Serial.print(roll, 2);
+    Serial.print(", ");
+    Serial.println(200);
+    
     
     count = millis(); 
     sumCount = 0;

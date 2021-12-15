@@ -2,7 +2,7 @@
 #include "SensorFusion.h"
 #include <EEPROM.h>
 
-MPU9250 IMU(Wire2,0x68);
+MPU9250 IMU(Wire2,0x71);
 
 SF fusion;
 
