@@ -1,10 +1,42 @@
 #include <Trajectory.h>
 
+
 //#include <Wire.h>
 #include <i2c_driver_wire.h>
 #include <nRF24L01.h>
 #include <RF24.h>
 #include <Servo.h>
+
+bool activate_pitch = false;
+bool lay_down = false;
+//#define ZEROED_EULER_DATA
+#define USING_RPI
+//#define USING_IMU
+//#define USING_WIFI_CONTROLLER
+
+
+#ifdef USING_IMU
+#include "MPU9250.h"    // https://github.com/bolderflight/MPU9250  
+#include "Streaming.h"    // needed for the Serial output https://github.com/geneReeves/ArduinoStreaming
+#include "SensorFusion.h"
+
+SF fusion;
+
+MPU9250 IMU(Wire2, 0x68);
+int status;
+#endif
+
+// IMU setup
+
+
+float gx, gy, gz, ax, ay, az, mx, my, mz, temp;
+float pitch_imu, roll_imu, yaw_imu;
+float prev_pitch, prev_roll, prev_yaw;
+float pitch_i, roll_i, yaw_i;
+float pitch_offset, roll_offset, yaw_offset = 0;
+float pitch_virt, roll_virt, yaw_virt = 0; // virtual euler angles
+float pitch_calib, roll_calib, yaw_calib; // calibrated euler angles
+float deltat;
 
 // nrf24 parameters
 //RF24 radio(5, 6); // ce csn pins for v1
@@ -19,7 +51,6 @@ const byte address[6] = "000003"; // Address for v3
 #define MAX_CMD_BUFFER 64
 #define NUM_SERVOS 12
 
-#define USING_RPI
 
 //const int servoPins[12] = {15, 18, 19, 17, 20, 21, 14, 9, 7, 16, 10, 8}; // Servo pins for v1
 const int servoPins[12] = {6, 7, 3, 5, 2, 4,    17, 16, 15, 20, 14, 21}; // Servo pins for v2 and v3
@@ -100,7 +131,8 @@ bool invertServo[NUM_SERVOS] = {false, false, true, true, false, false, true, fa
 // Offsets to get theta = 0 for  each servo
 //int offsets[NUM_SERVOS] = {69, 38, 117, 69, 41, 92, 62, 37, 93, 69, 52, 96}; // For v1
 //int offsets[NUM_SERVOS] = {90, 56, 80, 83, 131, 99,     83, 48, 90, 90, 135, 100}; // For v2
-int offsets[NUM_SERVOS] = {72, 35, 94, 103, 144, 97,     103, 39, 92, 72, 134, 90}; // For v3
+//int offsets[NUM_SERVOS] = {72, 35, 94, 103, 144, 97,     103, 39, 92, 72, 134, 90}; // For v3
+int offsets[NUM_SERVOS] = {72, 35, 94, 103, 144, 105,     103, 39, 98, 72, 134, 98}; // For v3
 //int hipRotationExtraOffset = 12; // degrees, for v2
 int hipRotationExtraOffset = 0; // degrees, for v3
 
@@ -121,7 +153,7 @@ float hOffset, vOffset, fbOffset, yawOffset; // relative to global
 // ===========================
 
 // Stationary rotations and translations
-int JSx = 512, JSy = 512   ;
+int JSx = 512, JSy = 512;
 int buttonTapped;
 int yaw, pitch, roll;
 
@@ -186,30 +218,61 @@ String rpi_msg = "";
 bool received_rpi_msg = false;
 int ledPin = 13;
 
-enum control_modes {orient, walk};
+enum control_modes {orient, walk, xbox_controller};
 control_modes control_mode = walk;
 
 void setup() {
   // start gait as continuous trot for now
   Serial.begin(115200);
 
-  #ifdef USING_RPI
+  Serial.println("Serial begin");
+
+  pinMode(13, OUTPUT);
+
+#ifdef USING_IMU
+  status = IMU.begin();
+  if (status < 0) {
+    // Failed to initialize IMU - blink five times quickly then stop
+    for (int i=0; i<5; i++) {
+      digitalWrite(13, HIGH);
+      delay(200);
+      digitalWrite(13, LOW);
+      delay(200);
+    }
+    Serial.println("IMU initialization unsuccessful");
+    Serial.println("Check IMU wiring or try cycling power");
+    Serial.print("Status: ");
+    Serial.println(status);
+  }
+  else {
+    // Successfully initialized IMU - one long blink
+    digitalWrite(13, HIGH);
+    delay(2000);
+    digitalWrite(13, LOW);
+  }
+#endif
+
+#ifdef USING_RPI
+
+    Serial.println("before starting wire on 0x8");
     // Join I2C bus as slave with address 8
     Wire.begin(0x8);
     
     // Call receiveEvent when data is received over I2C
     Wire.onReceive(receiveEvent);
 
+    Serial.println("using raspberry pi");
+
     vOffset = 100;
-  #endif
+#endif
 
-//  startIMU();
-
+#ifdef USING_WIFI_CONTROLLER
   // Start nrf by reading - switch to writing only when required
   radio.begin();
   radio.openReadingPipe(0, address);
   radio.setPALevel(RF24_PA_MIN);
   radio.startListening();
+#endif
 
   // Assign all servo objects to appropriate pins
   for (int i = 0; i < NUM_SERVOS; i++)
@@ -221,7 +284,7 @@ void setup() {
     Serial.println("moving to crouch position");
   }
   
-  wholeDogKinematics(0, 0, 150, 0, 0, 0);
+  wholeDogKinematics(0, 0, 170, 0, 0, 0);
   moveToRotations(); // Set to crouching position on startup
   
   flTraj.setCurrentTrajectoryPoint(0, 0, botFrontInitial);
@@ -229,14 +292,14 @@ void setup() {
   blTraj.setCurrentTrajectoryPoint(0, 0, botFrontInitial);
   brTraj.setCurrentTrajectoryPoint(0, 0, botFrontInitial);
 
-  pinMode(ledPin, OUTPUT);
 }
 
 void loop() {
   // Check receiver watch dog to make sure data is still being received
-  receiverWDCheck();
-
-  #ifdef USING_RPI
+//  receiverWDCheck();
+//  Serial.println("in loop");
+  
+#ifdef USING_RPI
   /*
    * Used to read commands sent from Raspberry Pi in lieu of joystick inputs
    */
@@ -290,44 +353,80 @@ void loop() {
     desiredGaitRotationVel = 0;
     moveToRotations();
   }
-
-  #else
+#endif
   /*
    * Used only for commands sent directly through serial from PC (not raspberry pi)
    */
-  // Read incoming serial data
-  if (Serial.available() > 0)
-  {
-    readInput();
-    parseCmd();
+//  // Read incoming serial data
+//  if (Serial.available() > 0)
+//  {
+//    readInput();
+//    parseCmd();
+//
+//    // Print flags for debugging
+//    if (debugging)
+//    {
+//      displayFlags();
+//    }
+//  }
 
-    // Print flags for debugging
-    if (debugging)
-    {
-      displayFlags();
+
+#ifdef USING_IMU
+  // Check serial data to tare IMU
+  if (Serial.available() > 0) {
+    String msg = Serial.readStringUntil('\n');
+    if (msg == "tare") {
+      roll_virt = 0;
+      pitch_virt = 0;
+      yaw_virt = 0;
+    }
+    else if (msg == "start") {
+      activate_pitch = true;
+      lay_down = false;
+    }
+    else if (msg == "stop") {
+      activate_pitch = false;
+      lay_down = false;
+    }
+    else if (msg == "lay") {
+      lay_down = true;
+      activate_pitch = false;
+    }
+    else {
+      lay_down = false;
+      activate_pitch = false;
     }
   }
 
+  updateIMU();
+
+//  // Use controller values
+////    piInputs();
+//  controllerInputs();
+//  movementManager();
+  // Set to crouching position
+
+//  Serial << "pitch_virt: " << pitch_virt << ", pitch: " << pitch << "\n";
+//  Serial << pitch_virt << "," << roll_virt << "\n";
+//  Serial << "roll: " << roll_virt << ", pitch: " << pitch_virt << ", yaw: " << yaw_virt << "\n";
+  Serial << roll_virt << "," << pitch_virt << "," << yaw_imu << "\n";
+  if (activate_pitch) {
+    wholeDogKinematics(0, 0, 170, pitch_virt, roll_virt, 0);
+  }
+  else if (lay_down) {
+    wholeDogKinematics(0, 0, 10, 0, 0, 0);
+  }
+  else {
+    wholeDogKinematics(0, 0, 170, 0, 0, 0);
+  }
+  moveToRotations();
+#endif
+  
+  
+#ifdef USING_WIFI_CONTROLLER
   // Read incoming radio data
   receiveFromController(receiveJS, receiveIMU, JSy, JSx, buttonPress, buttonTapped, initialRoll, initialPitch, initialYaw, roll, pitch, yaw, receiverWatchDog);
 
-  /*
-   * Gait Control
-   */
-  if (!receiverWDTimerTripped)
-  {
-    // Use controller values
-//    piInputs();
-    controllerInputs();
-    movementManager();
-  }
-  else
-  {
-    // Set to crouching position
-    wholeDogKinematics(0, 0, 170, 0, 0, 0);
-    moveToRotations();
-  }
-  
   // Send data over wifi
   if (sending)
   {
@@ -350,12 +449,106 @@ void loop() {
     lastTime = millis();
     sending = true;
   }
-  #endif
+  
+  /*
+   * Gait Control
+   */
+  if (!receiverWDTimerTripped)
+  {
+    // Use controller values
+//    piInputs();
+    controllerInputs();
+    movementManager();
+  }
+  else
+  {
+    // Set to crouching position
+    wholeDogKinematics(0, 0, 170, 0, 0, 0);
+    moveToRotations();
+  }
+#endif
 
   resetMessage();
   resetCmd();
   resetFlags();
 }
+
+float integrated_vel_x = 0;
+float integrated_vel_y = 0;
+float integrated_vel_z = 0;
+float integrated_pos_x = 0;
+float integrated_pos_y = 0;
+float integrated_pos_z = 0;
+
+#ifdef USING_IMU
+void updateIMU()
+{
+  IMU.readSensor();
+
+  ax = IMU.getAccelX_mss();
+  ay = IMU.getAccelY_mss();
+  az = IMU.getAccelZ_mss();
+  gx = IMU.getGyroX_rads();
+  gy = IMU.getGyroY_rads();
+  gz = IMU.getGyroZ_rads();
+  mx = IMU.getMagX_uT();
+  my = IMU.getMagY_uT();
+  mz = IMU.getMagZ_uT();
+  temp = IMU.getTemperature_C();
+
+  integrated_vel_x += ax;
+  integrated_vel_y += ay;
+  integrated_vel_z += az;
+  integrated_pos_x += integrated_vel_x;
+  integrated_pos_y += integrated_vel_y;
+  integrated_pos_z += integrated_vel_z;
+
+  //Serial << "x position: " << integrated_pos_x << ", y position: " << integrated_pos_y << ", z position: " << integrated_pos_z << "\n";
+  //Serial << integrated_pos_x << "," << integrated_pos_y << "," << integrated_pos_z << "\n";
+
+  deltat = fusion.deltatUpdate();
+  //fusion.MahonyUpdate(gx, gy, gz, ax, ay, az, mx, my, mz, deltat);  //mahony is suggested if there isn't the mag
+  fusion.MadgwickUpdate(gx, gy, gz, ax, ay, az, mx, my, mz, deltat);  //else use the magwick
+
+  roll_imu = fusion.getRoll();
+  pitch_imu = fusion.getPitch();
+  yaw_imu = fusion.getYaw();
+
+  if (roll_imu >= -10 && roll_imu <= 180 && prev_roll >= -10 && prev_roll <= 180) {
+    roll_virt += roll_imu - prev_roll;
+  }
+  else if (roll_imu >= -180 && roll_imu < 10 && prev_roll >= -180 && prev_roll < 10) {
+    roll_virt += roll_imu - prev_roll;
+  }
+  else if (roll_imu >= 0 && roll_imu <= 180 && prev_roll >= -180 && prev_roll < 0) { // flipped from -180 to +180
+    roll_virt += (roll_imu - 180) + (-180 - prev_roll);
+  }
+  else if (roll_imu >= -180 && roll_imu < 0 && prev_roll >= 0 && prev_roll <= 180) { // flipped from +180 to -180
+    roll_virt += (roll_imu + 180) + (180 - prev_roll);
+  }
+
+  if (pitch_imu >= -10 && pitch_imu <= 180 && prev_pitch >= -10 && prev_pitch <= 180) {
+    pitch_virt += pitch_imu - prev_pitch;
+  }
+  else if (pitch_imu >= -180 && pitch_imu < 10 && prev_pitch >= -180 && prev_pitch < 10) {
+    pitch_virt += pitch_imu - prev_pitch;
+  }
+  else if (pitch_imu >= 0 && pitch_imu <= 180 && prev_pitch >= -180 && prev_pitch < 0) { // flipped from -180 to +180
+    pitch_virt += (pitch_imu - 180) + (-180 - prev_pitch);
+  }
+  else if (pitch_imu >= -180 && pitch_imu < 0 && prev_pitch >= 0 && prev_pitch <= 180) { // flipped from +180 to -180
+    pitch_virt += (pitch_imu + 180) + (180 - prev_pitch);
+  }
+
+  prev_roll = roll_imu;
+  prev_pitch = pitch_imu;
+  prev_yaw = yaw_imu;
+  
+#ifdef ZEROED_EULER_DATA
+  Serial << pitch_virt << " " << roll_virt << "\n";
+#endif
+}
+#endif
 
 /*
  *  Locomotion controller when using Raspberry Pi
@@ -363,21 +556,42 @@ void loop() {
  */
 void movementManagerRaspberryPi()
 {
-  if (control_mode == orient) {
-    wholeDogKinematics(hOffset, fbOffset, vOffset, pitch, roll, yawOffset);
-    moveToRotations(); 
-  }
-  else if (control_mode == walk) {
-    currentDelay = maxMotionDelay - max(max(abs(desiredGaitVelX), abs(desiredGaitVelY)), abs(desiredGaitRotationVel));
-//    vOffset = 120;
-    updateLegTrajectories();
-    moveToPositions();
-    
-    if (millis() > prevStepUpdate + currentDelay) // Only step to the next leg position every currentDelay milliseconds
-    {
-      prevStepUpdate = millis();
-      stepLegPositions();
+    Serial.print("control mode: ");
+    Serial.println(control_mode);
+  if (control_mode != xbox_controller) {
+    if (control_mode == orient) {
+      wholeDogKinematics(hOffset, fbOffset, vOffset, pitch, roll, yawOffset);
+      moveToRotations();
     }
+    else if (control_mode == walk) {
+      currentDelay = maxMotionDelay - max(max(abs(desiredGaitVelX), abs(desiredGaitVelY)), abs(desiredGaitRotationVel));
+  //    vOffset = 120;
+      Serial.print("vOffset: ");
+      Serial.println(vOffset);
+      updateLegTrajectories();
+      moveToPositions();
+      
+      if (millis() > prevStepUpdate + currentDelay) // Only step to the next leg position every currentDelay milliseconds
+      {
+        prevStepUpdate = millis();
+        stepLegPositions();
+      }
+    }
+  }
+  else if (control_mode == xbox_controller) {
+      //wholeDogKinematics(hOffset, fbOffset, vOffset, pitch, roll, yawOffset);
+      //moveToRotations();
+      
+      currentDelay = maxMotionDelay - max(max(abs(desiredGaitVelX), abs(desiredGaitVelY)), abs(desiredGaitRotationVel));
+  //    vOffset = 120;
+      updateLegTrajectories();
+      moveToPositions();
+      
+      if (millis() > prevStepUpdate + currentDelay) // Only step to the next leg position every currentDelay milliseconds
+      {
+        prevStepUpdate = millis();
+        stepLegPositions();
+      }
   }
 }
 
@@ -438,18 +652,21 @@ void updateLegTrajectories()
     // Set forward/backward gait throws
     static float forward = 0;
 
+    float forwardThrowGain = 1.7;
+    float sideThrowGain = 1.7;
+
     // Handle controller deadzone for front/back motion
     if (desiredGaitVelY > stopThresholdFB)
     { 
-      forward = initialFwdThrow + desiredGaitVelY; 
+      forward = (initialFwdThrow + desiredGaitVelY) * forwardThrowGain; 
     }
     else if (desiredGaitVelY < -stopThresholdFB)
     { 
-      forward = -initialFwdThrow + desiredGaitVelY;
+      forward = (-initialFwdThrow + desiredGaitVelY) * forwardThrowGain;
     }
     else
     { 
-      forward = 0; 
+      forward = 0;
     }
 
 
@@ -459,11 +676,11 @@ void updateLegTrajectories()
     // Handle controller deadzone for side to side motion (if in TRANS_TROT mode)
     if (desiredGaitVelX > stopThresholdSideways)
     { 
-      sideways = initialSideThrow + desiredGaitVelX; 
+      sideways = (initialSideThrow + desiredGaitVelX) * sideThrowGain;
     }
     else if (desiredGaitVelX < -stopThresholdSideways)
     { 
-      sideways = -initialSideThrow + desiredGaitVelX; 
+      sideways = (-initialSideThrow + desiredGaitVelX) * sideThrowGain;
     }
     else
     { 
@@ -749,7 +966,7 @@ void checkJoystickControl()
 /*
  *  Setter for Raspberry Pi commands received over serial
  */
-void piInputs()
+void piInputs() // Currently unused. Use receiveEvent instead.
 {
   Serial.print("raspberry pi message: "); Serial.println(rpi_msg);
   if (rpi_msg.length()==36) {
@@ -813,6 +1030,7 @@ void receiveEvent(int numBytes) {
 
   // Parse commands
   Serial.print("cmd_index: ");Serial.println(cmd_index);
+  
   if (cmd_index == 10) {
     Serial.println("parsing commands");
     roll = map(commands[0], 0, 1023, -60, 60); // degrees
