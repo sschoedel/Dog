@@ -12,19 +12,17 @@ numb = 1
 while True:
     data = "0512051205120512051205120512051205120000"
     data_v = list(data)
+    
     # Get xbox data
     left_x_raw, left_y_raw, right_x_raw, right_y_raw = xb.read()
-    if xb.joyGetPosEx(0, xb.p_info) != 0:
-        print("Xbox not connected")
-    else:
-        x_vel = ( (left_x_raw - 32767) / 32768.0 ) * 1024
-        y_vel = ( (left_y_raw - 32767) / 32768.0 ) * 1024
-        rot_vel = ( (right_x_raw - 32767) / 32768.0 ) * 1024
-        _ = ( (right_y_raw - 32767) / 32768.0 ) * 1024
-        data[24:28] = ''.join(str(x_vel))
-        data[28:32] = ''.join(str(y_vel))
-        data[32:36] = ''.join(str(rot_vel))
-        data[36:40] = 1 # for walking mode
+    x_vel = ( (left_x_raw - 32767) / 32768.0 ) * 1024
+    y_vel = ( (left_y_raw - 32767) / 32768.0 ) * 1024
+    rot_vel = ( (right_x_raw - 32767) / 32768.0 ) * 1024
+    _ = ( (right_y_raw - 32767) / 32768.0 ) * 1024
+    data[24:28] = ''.join(str(x_vel))
+    data[28:32] = ''.join(str(y_vel))
+    data[32:36] = ''.join(str(rot_vel))
+    data[36:40] = 1 # for walking mode
 
     expected_data = 40
 
